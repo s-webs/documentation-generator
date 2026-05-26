@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m venv .venv)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(docgen --help)",
+      "Bash(python -m docgen.cli --help)",
+      "Bash(python -c \"from docgen.cli import main; main\\(\\)\" -- --help)",
+      "Bash(.venv/bin/python -c \"from docgen.cli import main; print\\('OK'\\)\" 2>&1)",
+      "Bash(.venv/bin/python -c \"from docgen.cli import main\" 2>&1)",
+      "Bash(.venv/bin/python -c \"from docgen.cli import main\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/python -c \"from docgen.cli import main; print\\('Import OK'\\)\" 2>&1)",
+      "Bash(.venv/bin/python -m docgen.cli --help 2>&1)",
+      "Bash(.venv/bin/python -c \":*)",
+      "Bash(.venv/bin/python -c \"\nfrom docgen.scanner import scan_project\nscan = scan_project\\('.'\\)\nprint\\(scan.summary\\(\\)\\)\n\" 2>&1)",
+      "Bash(.venv/bin/python -c \"\nfrom docgen.scanner import scan_project\nscan = scan_project\\('.'\\)\nprint\\(scan.summary\\(\\)\\)\nprint\\(\\)\nprint\\(scan.tree\\)\n\" 2>&1)",
+      "WebFetch(domain:gitlawb.com)",
+      "WebSearch",
+      "Bash(env)",
+      "Bash(OPENAI_API_KEY=$OPENAI_API_KEY OPENAI_BASE_URL=$OPENAI_BASE_URL OPENAI_MODEL=$OPENAI_MODEL .venv/bin/docgen . --dry-run 2>&1)",
+      "Bash(echo:*)",
+      "Bash(curl:*)",
+      "Bash(OPENAI_API_KEY=$OPENAI_API_KEY OPENAI_BASE_URL=$OPENAI_BASE_URL OPENAI_MODEL=$OPENAI_MODEL .venv/bin/python -c \"\nfrom openai import OpenAI\nimport os\nclient = OpenAI\\(api_key=os.environ['OPENAI_API_KEY'], base_url=os.environ['OPENAI_BASE_URL']\\)\nresp = client.chat.completions.create\\(\n    model='mimo-v2.5-pro',\n    messages=[{'role':'user','content':'Say OK'}],\n    max_tokens=10\n\\)\nprint\\(resp.choices[0].message.content\\)\n\" 2>&1)",
+      "Bash(OPENAI_API_KEY=\"$OPENAI_API_KEY\" OPENAI_BASE_URL=\"$OPENAI_BASE_URL\" OPENAI_MODEL=\"$OPENAI_MODEL\" .venv/bin/docgen . --dry-run)",
+      "Bash(docgen /Users/nikitavoronin/Development/Projects/documentation-gen --dry-run)"
+    ]
+  }
+}
