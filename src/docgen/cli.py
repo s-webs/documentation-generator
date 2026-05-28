@@ -15,17 +15,27 @@ from .scanner import scan_project
 
 logger = logging.getLogger("docgen")
 
-OVERVIEW_KEYWORDS = [
-    "overview", "architecture", "tech stack", "technology stack", "structure",
-    "о проекте", "паспорт проекта", "архитектура", "технологический стек",
-    "структура проекта",
-]
+CHAPTER_MAP: dict[str, str] = {
+    "о проекте": "О проекте",
+    "паспорт проекта": "О проекте",
+    "архитектура": "О проекте",
+    "технологический стек": "О проекте",
+    "структура проекта": "О проекте",
+    "начало работы": "Начало работы",
+    "модули и техническая реализация": "Модули и техническая реализация",
+    "безопасность": "Безопасность",
+}
+
+CHAPTER_ORDER = ["О проекте", "Начало работы", "Модули и техническая реализация", "Безопасность"]
 
 
-def _is_overview_section(title: str) -> bool:
-    """Check if a section title belongs to the overview chapter (fuzzy match)."""
-    lower = title.lower()
-    return any(kw in lower for kw in OVERVIEW_KEYWORDS)
+def _get_chapter_name(section_title: str) -> str:
+    """Map a section title to its parent chapter name."""
+    lower = section_title.lower()
+    for keyword, chapter in CHAPTER_MAP.items():
+        if keyword in lower:
+            return chapter
+    return section_title
 
 
 def _validate_env(dry_run: bool) -> None:
@@ -154,17 +164,29 @@ def main() -> None:
         )
         book_id: int = book["id"]
 
-        overview_sections = [s for s in docs.sections if _is_overview_section(s.title)]
-        detail_sections = [s for s in docs.sections if not _is_overview_section(s.title)]
+        chapters_by_name: dict[str, dict] = {}
+        sections_by_chapter: dict[str, list] = {}
 
-        if overview_sections:
-            logger.info("  Creating/updating chapter: О проекте")
-            chapter = client.find_or_create_chapter(
-                name="О проекте",
-                book_id=book_id,
-                description="Обзор проекта и паспорт",
-            )
-            for section in overview_sections:
+        for section in docs.sections:
+            ch_name = _get_chapter_name(section.title)
+            if ch_name not in sections_by_chapter:
+                sections_by_chapter[ch_name] = []
+            sections_by_chapter[ch_name].append(section)
+
+        for ch_name in CHAPTER_ORDER:
+            sections = sections_by_chapter.get(ch_name)
+            if not sections:
+                continue
+
+            if ch_name not in chapters_by_name:
+                logger.info("  Creating/updating chapter: %s", ch_name)
+                chapters_by_name[ch_name] = client.find_or_create_chapter(
+                    name=ch_name,
+                    book_id=book_id,
+                )
+
+            chapter = chapters_by_name[ch_name]
+            for section in sections:
                 logger.info("    Creating/updating page: %s", section.title)
                 client.create_or_update_page(
                     name=section.title,
@@ -172,25 +194,18 @@ def main() -> None:
                     chapter_id=chapter["id"],
                 )
 
-        for section in detail_sections:
-            if section.title.lower().startswith("модуль:"):
-                chapter_name = section.title.split(":", 1)[1].strip()
-            elif section.title.lower().startswith("module:"):
-                chapter_name = section.title.split(":", 1)[1].strip()
-            else:
-                chapter_name = section.title
-
-            logger.info("  Creating/updating chapter: %s", chapter_name)
-            chapter = client.find_or_create_chapter(
-                name=chapter_name,
-                book_id=book_id,
-            )
-            logger.info("    Creating/updating page: %s", section.title)
-            client.create_or_update_page(
-                name=section.title,
-                content=section.content,
-                chapter_id=chapter["id"],
-            )
+        for ch_name, sections in sections_by_chapter.items():
+            if ch_name in CHAPTER_ORDER:
+                continue
+            logger.info("  Creating/updating chapter: %s", ch_name)
+            chapter = client.find_or_create_chapter(name=ch_name, book_id=book_id)
+            for section in sections:
+                logger.info("    Creating/updating page: %s", section.title)
+                client.create_or_update_page(
+                    name=section.title,
+                    content=section.content,
+                    chapter_id=chapter["id"],
+                )
 
         logger.info("\n%s", "=" * 60)
         logger.info("  Done! Documentation published to BookStack")

@@ -137,7 +137,7 @@ class TestBuildPrompts:
         scan = self._make_scan()
         prompt = _build_setup_prompt(scan)
         assert "pyproject.toml" in prompt
-        assert "Getting Started" in prompt
+        assert "Начало работы" in prompt
 
 
 class TestAnalyzeProject:

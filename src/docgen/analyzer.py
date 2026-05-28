@@ -108,63 +108,36 @@ def _build_overview_prompt(scan: ProjectScan) -> str:
 Пиши на русском языке. Документация должна быть профессиональной и подробной."""
 
 
-def _build_detail_prompt(scan: ProjectScan, section_title: str, file_group: list[ProjectFile]) -> str:
-    """Build prompt for detailed documentation of specific files."""
+def _build_modules_prompt(scan: ProjectScan) -> str:
+    """Build prompt for combined modules and technical implementation docs."""
     files_content = ""
-    for f in file_group[:20]:
-        files_content += f"\n\n--- {f.path} ---\n{f.content[:8000]}"
+    for f in scan.files[:30]:
+        files_content += f"\n\n--- {f.path} ---\n{f.content[:6000]}"
 
-    return f"""Проанализируй исходные файлы и сгенерируй раздел документации "{section_title}".
+    return f"""Проанализируй все исходные файлы проекта и сгенерируй единый раздел \
+"Модули и техническая реализация".
 
 ## Проект: {scan.name}
 
-## Файлы для анализа:
+## Дерево файлов
+```
+{scan.tree}
+```
+
+## Исходные файлы:
 {files_content}
 
-Ответь JSON-объектом: {{"title": "...", "content": "..."}}
-Содержание (content) должно быть подробной Markdown-документацией на русском языке:
-- Что делают эти файлы/модули
-- Ключевые классы, функции и их назначение
-- Как они взаимодействуют друг с другом
+Ответь JSON-объектом: {{"title": "Модули и техническая реализация", "content": "..."}}
+Содержание (content) должно быть подробной Markdown-документацией на русском языке. \
+Для каждого модуля/каталога проекта опиши:
+- Назначение модуля
+- Ключевые классы и функции, их сигнатуры и назначение
+- Взаимодействие между модулями
+- API-эндпоинты, если применимо (метод, путь, описание)
 - Используемые переменные окружения и конфигурация
-- API-эндпоинты, если применимо
 
+Структурируй документ по модулям/каталогам с заголовками. \
 Пиши подробно, но лаконично."""
-
-
-def _build_api_prompt(scan: ProjectScan) -> str:
-    """Build prompt specifically for API documentation."""
-    api_markers = [
-        "@app.route", "@router", "fastapi", "express", "router.",
-        "endpoint", "api/", "@get", "@post", "@put", "@delete",
-        "httpserver", "handler", "controller", "resource",
-    ]
-    api_files = [
-        f for f in scan.files
-        if any(m in f.content.lower() for m in api_markers)
-    ]
-
-    if not api_files:
-        return ""
-
-    files_content = ""
-    for f in api_files[:15]:
-        files_content += f"\n\n--- {f.path} ---\n{f.content[:8000]}"
-
-    return f"""Проанализируй файлы, связанные с API, и сгенерируй документацию по API.
-
-## Проект: {scan.name}
-
-## Файлы API:
-{files_content}
-
-Ответь JSON-объектом: {{"title": "Справочник API", "content": "..."}}
-Документируй на русском языке:
-- Все эндпоинты (метод, путь, описание)
-- Форматы запросов и ответов
-- Требования к аутентификации
-- Коды ошибок и их обработка
-- Примеры запросов/ответов, где это уместно"""
 
 
 def _build_setup_prompt(scan: ProjectScan) -> str:
@@ -196,6 +169,36 @@ def _build_setup_prompt(scan: ProjectScan) -> str:
 - Настройка окружения
 - Как запустить проект
 - Частые проблемы и их решение"""
+
+
+def _build_security_prompt(scan: ProjectScan) -> str:
+    """Build prompt for security audit documentation."""
+    files_content = ""
+    for f in scan.files[:30]:
+        files_content += f"\n\n--- {f.path} ---\n{f.content[:6000]}"
+
+    return f"""Проведи аудит безопасности проекта на основе исходного кода и сгенерируй \
+раздел документации "Безопасность".
+
+## Проект: {scan.name}
+
+## Исходные файлы:
+{files_content}
+
+Ответь JSON-объектом: {{"title": "Безопасность", "content": "..."}}
+Содержание (content) должно быть подробной Markdown-документацией на русском языке. \
+Проанализируй и документируй:
+- **Управление секретами и переменными окружения** — как хранятся и используются \
+API-ключи, токены, пароли; есть ли риск утечки
+- **Аутентификация и авторизация** — механизмы аутентификации в проекте, \
+управление доступом, токены
+- **Валидация входных данных** — проверяются ли пользовательские данные, \
+защита от инъекций, sanitization
+- **Безопасность зависимостей** — используемые сторонние библиотеки, \
+известные уязвимости, актуальность версий
+- **Рекомендации по улучшению** — конкретные шаги для повышения безопасности проекта
+
+Будь объективен и конкретен. Указывай файлы и строки, где обнаружены проблемы."""
 
 
 def _call_ai(
@@ -474,17 +477,11 @@ def _generate_section(
 
 
 def analyze_project(scan: ProjectScan, model: str | None = None) -> ProjectDocs:
-    """Analyze a project and generate documentation sections.
+    """Analyze a project and generate documentation in 4 chapters.
 
-    The overview is generated first (sequentially), then independent sections
-    (API docs, setup, modules) run in parallel via ThreadPoolExecutor.
-
-    Args:
-        scan: ProjectScan result from scanner.
-        model: Model to use (default: from OPENAI_MODEL env var or mimo-v2.5-pro).
-
-    Returns:
-        ProjectDocs with all generated sections.
+    Chapters: О проекте (overview), Начало работы, Модули и техническая
+    реализация, Безопасность. Each is generated sequentially via a shared
+    HTTP session.
     """
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -520,38 +517,13 @@ def analyze_project(scan: ProjectScan, model: str | None = None) -> ProjectDocs:
     except Exception as e:
         logger.warning("  Failed to parse overview: %s", e)
 
-    # 2. Collect independent tasks
-    tasks: list[tuple[str, str, int]] = []  # (prompt, fallback_title, order)
+    # 2. Fixed documentation sections
+    tasks: list[tuple[str, str, int]] = [
+        (_build_setup_prompt(scan), "Начало работы", 10),
+        (_build_modules_prompt(scan), "Модули и техническая реализация", 20),
+        (_build_security_prompt(scan), "Безопасность", 30),
+    ]
 
-    api_prompt = _build_api_prompt(scan)
-    if api_prompt:
-        logger.info("  Generating API documentation...")
-        tasks.append((api_prompt, "Справочник API", 10))
-
-    logger.info("  Generating setup documentation...")
-    setup_prompt = _build_setup_prompt(scan)
-    tasks.append((setup_prompt, "Начало работы", 20))
-
-    # 3. Module-level documentation for larger projects
-    if len(scan.files) > 10:
-        dir_groups: dict[str, list[ProjectFile]] = {}
-        for f in scan.files:
-            dir_name = os.path.dirname(f.path) or "."
-            if dir_name not in dir_groups:
-                dir_groups[dir_name] = []
-            dir_groups[dir_name].append(f)
-
-        order = 30
-        for dir_name, group_files in sorted(dir_groups.items()):
-            if dir_name == "." or len(group_files) < 2:
-                continue
-            logger.info("  Generating docs for %s/...", dir_name)
-            prompt = _build_detail_prompt(scan, f"Модуль: {dir_name}", group_files)
-            tasks.append((prompt, f"Модуль: {dir_name}", order))
-            order += 1
-
-    # 4. Run independent tasks sequentially with shared session to avoid
-    #    overwhelming the API with concurrent requests (rate-limit / hang).
     for prompt, title, ord_ in tasks:
         logger.info("  [AI] %s ...", title)
         section = _generate_section(

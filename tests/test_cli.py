@@ -6,33 +6,36 @@ import os
 from unittest.mock import MagicMock, patch
 
 from docgen.analyzer import DocSection, ProjectDocs
-from docgen.cli import _is_overview_section, _validate_env
+from docgen.cli import _get_chapter_name, _validate_env
 
 
-class TestIsOverviewSection:
-    def test_exact_match(self):
-        assert _is_overview_section("Project Overview") is True
+class TestGetChapterName:
+    def test_about_project(self):
+        assert _get_chapter_name("О проекте") == "О проекте"
 
-    def test_case_insensitive(self):
-        assert _is_overview_section("project overview") is True
+    def test_passport(self):
+        assert _get_chapter_name("Паспорт проекта") == "О проекте"
 
     def test_architecture(self):
-        assert _is_overview_section("Architecture") is True
+        assert _get_chapter_name("Архитектура") == "О проекте"
 
-    def test_tech_stack_variant(self):
-        assert _is_overview_section("Technology Stack") is True
+    def test_tech_stack(self):
+        assert _get_chapter_name("Технологический стек") == "О проекте"
 
     def test_structure(self):
-        assert _is_overview_section("Project Structure") is True
+        assert _get_chapter_name("Структура проекта") == "О проекте"
 
-    def test_module_not_overview(self):
-        assert _is_overview_section("Module: utils") is False
+    def test_getting_started(self):
+        assert _get_chapter_name("Начало работы") == "Начало работы"
 
-    def test_api_reference_not_overview(self):
-        assert _is_overview_section("API Reference") is False
+    def test_modules(self):
+        assert _get_chapter_name("Модули и техническая реализация") == "Модули и техническая реализация"
 
-    def test_getting_started_not_overview(self):
-        assert _is_overview_section("Getting Started") is False
+    def test_security(self):
+        assert _get_chapter_name("Безопасность") == "Безопасность"
+
+    def test_unknown_falls_through(self):
+        assert _get_chapter_name("Something Unknown") == "Something Unknown"
 
 
 class TestValidateEnv:
@@ -90,8 +93,8 @@ class TestMainDryRun:
         mock_docs = ProjectDocs(
             project_name="testproj",
             sections=[
-                DocSection(title="Project Overview", content="A test project.", order=0),
-                DocSection(title="Getting Started", content="Run it.", order=20),
+                DocSection(title="О проекте", content="Тестовый проект.", order=0),
+                DocSection(title="Начало работы", content="Запуск.", order=10),
             ],
         )
 
@@ -114,5 +117,5 @@ class TestMainDryRun:
         captured = capfd.readouterr()
         output = captured.out + captured.err
         assert "DRY RUN" in output
-        assert "Project Overview" in output
-        assert "Getting Started" in output
+        assert "О проекте" in output
+        assert "Начало работы" in output
